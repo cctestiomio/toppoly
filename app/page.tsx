@@ -30,7 +30,6 @@ function parsePositiveInt(
 export default async function Page({ searchParams }: PageProps) {
   const minTraders = parsePositiveInt(searchParams?.min, 3, 2, 10);
   const topN = parsePositiveInt(searchParams?.top, 50, 10, 50);
-  // Default to hiding resolved markets; ?resolved=1 shows them.
   const hideResolved = searchParams?.resolved !== "1";
 
   let errorMessage: string | null = null;
@@ -182,7 +181,7 @@ function FilterBar({
   hideResolved: boolean;
 }) {
   const minOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const topOptions = [25, 50, 100, 200];
+  const topOptions = [25, 50];
 
   const buildQuery = (overrides: {
     min?: number;
