@@ -71,7 +71,7 @@ export function SignalCard({ signal, index }: SignalCardProps) {
             )}
           </div>
           <h3 className="text-base font-semibold text-neutral-900 leading-snug">
-            
+            <a
               href={polymarketUrl}
               target="_blank"
               rel="noreferrer noopener"
@@ -95,9 +95,9 @@ export function SignalCard({ signal, index }: SignalCardProps) {
           </div>
         </div>
 
-        {/* Action buttons: Open market + Expand */}
+        {/* Action buttons: Trade + Expand */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          
+          <a
             href={polymarketUrl}
             target="_blank"
             rel="noreferrer noopener"
@@ -167,7 +167,7 @@ export function SignalCard({ signal, index }: SignalCardProps) {
                 key={t.proxyWallet}
                 className="px-5 py-3 grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center"
               >
-                
+                <a
                   href={`https://polymarket.com/profile/${t.proxyWallet}`}
                   target="_blank"
                   rel="noreferrer noopener"

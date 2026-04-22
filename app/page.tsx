@@ -30,6 +30,7 @@ function parsePositiveInt(
 export default async function Page({ searchParams }: PageProps) {
   const minTraders = parsePositiveInt(searchParams?.min, 3, 2, 10);
   const topN = parsePositiveInt(searchParams?.top, 50, 10, 50);
+  // Default to hiding resolved markets; ?resolved=1 shows them.
   const hideResolved = searchParams?.resolved !== "1";
 
   let errorMessage: string | null = null;
@@ -151,7 +152,7 @@ function Header({
         <strong className="text-neutral-900">{minTraders}+</strong> of the top{" "}
         <strong className="text-neutral-900">{topN}</strong> monthly-profit
         traders on{" "}
-        
+        <a
           href="https://polymarket.com/leaderboard/overall/monthly/profit"
           target="_blank"
           rel="noreferrer noopener"

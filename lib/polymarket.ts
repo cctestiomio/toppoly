@@ -11,47 +11,8 @@ const POSITIONS_URL = "https://data-api.polymarket.com/positions";
 // Next.js fetch revalidation window for both endpoints (seconds).
 const REVALIDATE_SECONDS = 600; // 10 minutes
 
-// Polymarket's leaderboard endpoint caps `limit` at 50 per request.
-const LEADERBOARD_PAGE_SIZE = 50;
-// And caps `offset` at 1000, so the absolute max is 1050 traders.
-const LEADERBOARD_MAX_TRADERS = 1000;
-
 /**
- * Fetch a single page of the leaderboard (max 50 entries).
- */
-async function fetchLeaderboardPage(params: {
-  timePeriod: LeaderboardTimePeriod;
-  orderBy: LeaderboardOrderBy;
-  limit: number;
-  offset: number;
-}): Promise<LeaderboardEntry[]> {
-  const url = new URL(LEADERBOARD_URL);
-  url.searchParams.set("timePeriod", params.timePeriod);
-  url.searchParams.set("orderBy", params.orderBy);
-  url.searchParams.set("limit", String(params.limit));
-  url.searchParams.set("offset", String(params.offset));
-  url.searchParams.set("category", "OVERALL");
-
-  const res = await fetch(url.toString(), {
-    next: { revalidate: REVALIDATE_SECONDS },
-    headers: { accept: "application/json" },
-  });
-
-  if (!res.ok) {
-    throw new Error(
-      `Leaderboard fetch failed (offset ${params.offset}): ${res.status} ${res.statusText}`
-    );
-  }
-
-  const data = (await res.json()) as LeaderboardEntry[];
-  if (!Array.isArray(data)) {
-    throw new Error("Leaderboard response was not an array");
-  }
-  return data;
-}
-
-/**
- * Fetch the top traders leaderboard, auto-paginating past the 50-per-page cap.
+ * Fetch the top traders leaderboard.
  *
  * Defaults to MONTHLY PNL which matches:
  *   https://polymarket.com/leaderboard/overall/monthly/profit
@@ -63,38 +24,28 @@ export async function fetchLeaderboard(opts?: {
 }): Promise<LeaderboardEntry[]> {
   const timePeriod = opts?.timePeriod ?? "MONTH";
   const orderBy = opts?.orderBy ?? "PNL";
-  const requested = Math.min(
-    Math.max(opts?.limit ?? 50, 1),
-    LEADERBOARD_MAX_TRADERS
-  );
+  const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 50); // API max = 50
 
-  // Build the list of page requests we need to satisfy `requested`.
-  const pages: Array<{ limit: number; offset: number }> = [];
-  for (let offset = 0; offset < requested; offset += LEADERBOARD_PAGE_SIZE) {
-    pages.push({
-      limit: Math.min(LEADERBOARD_PAGE_SIZE, requested - offset),
-      offset,
-    });
+  const url = new URL(LEADERBOARD_URL);
+  url.searchParams.set("timePeriod", timePeriod);
+  url.searchParams.set("orderBy", orderBy);
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("category", "OVERALL");
+
+  const res = await fetch(url.toString(), {
+    next: { revalidate: REVALIDATE_SECONDS },
+    headers: { accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Leaderboard fetch failed: ${res.status} ${res.statusText}`);
   }
 
-  const pageResults = await Promise.all(
-    pages.map((p) =>
-      fetchLeaderboardPage({ timePeriod, orderBy, ...p })
-    )
-  );
-
-  // Flatten, then deduplicate by wallet in case pages overlap.
-  const seen = new Set<string>();
-  const merged: LeaderboardEntry[] = [];
-  for (const page of pageResults) {
-    for (const entry of page) {
-      const key = entry.proxyWallet?.toLowerCase();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      merged.push(entry);
-    }
+  const data = (await res.json()) as LeaderboardEntry[];
+  if (!Array.isArray(data)) {
+    throw new Error("Leaderboard response was not an array");
   }
-  return merged;
+  return data;
 }
 
 /**
