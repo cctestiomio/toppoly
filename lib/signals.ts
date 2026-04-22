@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import {
   fetchLeaderboard,
+  fetchSportsEventSlugs,
   fetchUserPositions,
   mapWithConcurrency,
 } from "./polymarket";
@@ -21,6 +22,8 @@ export interface BuildSignalsOptions {
   concurrency?: number;
   /** Hide markets where the outcome price is >= 0.99 (effectively already resolved). */
   hideResolved?: boolean;
+  /** Only include markets tagged as sports or esports on Polymarket. */
+  sportsOnly?: boolean;
 }
 
 export interface SignalsPayload {
@@ -32,6 +35,8 @@ export interface SignalsPayload {
     totalPositions: number;
     hideResolved: boolean;
     resolvedHidden: number;
+    sportsOnly: boolean;
+    nonSportsHidden: number;
     generatedAt: string;
   };
 }
@@ -59,8 +64,16 @@ export async function buildSignals(
     12
   );
   const hideResolved = options.hideResolved ?? true;
+  const sportsOnly = options.sportsOnly ?? false;
   // Markets trading at >= 99¢ are effectively resolved — nothing to follow.
   const RESOLVED_PRICE_THRESHOLD = 0.99;
+
+  // Kick off the sports-slug fetch in parallel with the leaderboard so the
+  // extra Gamma call doesn't serialize behind the data-API call. Resolves to
+  // an empty Set when the toggle is off — cheap, no network cost.
+  const sportsSlugsPromise: Promise<Set<string>> = sportsOnly
+    ? fetchSportsEventSlugs()
+    : Promise.resolve(new Set<string>());
 
   const leaderboard = await fetchLeaderboard({
     timePeriod: "MONTH",
@@ -126,14 +139,26 @@ export async function buildSignals(
     }
   }
 
-  // Finalize: compute aggregates, filter by minTraders + resolved, sort.
+  // Wait for the sports-slug set now that grouping is done. When sportsOnly is
+  // false this resolves instantly with an empty set (see promise init above).
+  const sportsSlugs = await sportsSlugsPromise;
+
+  // Finalize: compute aggregates, filter by minTraders + resolved + sports, sort.
   const signals: SignalGroup[] = [];
   let resolvedHidden = 0;
+  let nonSportsHidden = 0;
   for (const group of groups.values()) {
     if (group.traders.length < minTraders) continue;
     if (group.currentPrice >= RESOLVED_PRICE_THRESHOLD) {
       resolvedHidden++;
       if (hideResolved) continue;
+    }
+    if (sportsOnly) {
+      const slug = group.eventSlug?.toLowerCase();
+      if (!slug || !sportsSlugs.has(slug)) {
+        nonSportsHidden++;
+        continue;
+      }
     }
 
     const total = group.traders.reduce((s, t) => s + t.positionValue, 0);
@@ -157,6 +182,8 @@ export async function buildSignals(
       totalPositions,
       hideResolved,
       resolvedHidden,
+      sportsOnly,
+      nonSportsHidden,
       generatedAt: new Date().toISOString(),
     },
   };

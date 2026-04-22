@@ -7,6 +7,7 @@ import type {
 
 const LEADERBOARD_URL = "https://data-api.polymarket.com/v1/leaderboard";
 const POSITIONS_URL = "https://data-api.polymarket.com/positions";
+const GAMMA_EVENTS_URL = "https://gamma-api.polymarket.com/events";
 
 // Next.js fetch revalidation window for both endpoints (seconds).
 const REVALIDATE_SECONDS = 600; // 10 minutes
@@ -15,6 +16,19 @@ const REVALIDATE_SECONDS = 600; // 10 minutes
 const LEADERBOARD_PAGE_SIZE = 50;
 // And caps `offset` at 1000, so the absolute max we can fetch is ~1000 traders.
 const LEADERBOARD_MAX_TRADERS = 1000;
+
+// Gamma /events caps `limit` at 100 per page.
+const GAMMA_EVENTS_PAGE_SIZE = 100;
+// Cap total sports events we pull — a few thousand is plenty to catch every
+// market the leaderboard traders might hold. Prevents runaway pagination if the
+// API ever returns more than expected.
+const GAMMA_EVENTS_MAX_PAGES = 20;
+
+// Tag slugs used to identify sports & esports events in Polymarket's Gamma API.
+// `sports` with related_tags=true pulls the whole sports tree (NFL, NBA, MLB,
+// soccer leagues, tennis, etc.). `esports` is a sibling top-level tag that is
+// NOT a child of `sports`, so we fetch it separately.
+const SPORTS_TAG_SLUGS = ["sports", "esports"] as const;
 
 /**
  * Fetch a single page of the leaderboard (max 50 entries).
@@ -156,4 +170,84 @@ export async function mapWithConcurrency<T, R>(
 
   await Promise.all(workers);
   return results;
+}
+
+// Minimal shape we care about from the Gamma /events response.
+// Real events have many more fields — we only read what we need.
+interface GammaEventLite {
+  slug?: string | null;
+}
+
+/**
+ * Fetch one page of events for a given tag slug from the Gamma API.
+ * Returns whatever the API returns — callers handle pagination.
+ */
+async function fetchGammaEventsPage(params: {
+  tagSlug: string;
+  offset: number;
+  includeRelated: boolean;
+}): Promise<GammaEventLite[]> {
+  const url = new URL(GAMMA_EVENTS_URL);
+  url.searchParams.set("tag_slug", params.tagSlug);
+  if (params.includeRelated) {
+    // Pulls child tags (NFL, NBA, tennis, etc.) under `sports`.
+    url.searchParams.set("related_tags", "true");
+  }
+  url.searchParams.set("closed", "false");
+  url.searchParams.set("limit", String(GAMMA_EVENTS_PAGE_SIZE));
+  url.searchParams.set("offset", String(params.offset));
+
+  const res = await fetch(url.toString(), {
+    next: { revalidate: REVALIDATE_SECONDS },
+    headers: { accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    // Non-fatal — if Gamma is hiccupping we'd rather show all signals than
+    // crash the whole page.
+    return [];
+  }
+
+  try {
+    const data = (await res.json()) as GammaEventLite[];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch every open-market event slug classified as sports or esports on
+ * Polymarket, via the Gamma /events endpoint. Paginates per tag until a short
+ * page signals end-of-results.
+ *
+ * Result is a normalized (lower-cased) Set of eventSlugs suitable for direct
+ * membership checks against `UserPosition.eventSlug`.
+ */
+export async function fetchSportsEventSlugs(): Promise<Set<string>> {
+  const slugs = new Set<string>();
+
+  // Run the per-tag crawls in parallel — they're independent.
+  await Promise.all(
+    SPORTS_TAG_SLUGS.map(async (tagSlug) => {
+      const includeRelated = tagSlug === "sports";
+      for (let page = 0; page < GAMMA_EVENTS_MAX_PAGES; page++) {
+        const offset = page * GAMMA_EVENTS_PAGE_SIZE;
+        const events = await fetchGammaEventsPage({
+          tagSlug,
+          offset,
+          includeRelated,
+        });
+
+        for (const event of events) {
+          if (event.slug) slugs.add(event.slug.toLowerCase());
+        }
+
+        // Short (or empty) page => we've reached the end for this tag.
+        if (events.length < GAMMA_EVENTS_PAGE_SIZE) break;
+      }
+    })
+  );
+
+  return slugs;
 }

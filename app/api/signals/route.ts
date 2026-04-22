@@ -20,9 +20,15 @@ export async function GET(request: Request) {
   const minTraders = parsePositiveInt(searchParams.get("min"), 3, 2, 10);
   const topN = parsePositiveInt(searchParams.get("top"), 50, 10, 50);
   const hideResolved = searchParams.get("resolved") !== "1";
+  const sportsOnly = searchParams.get("sports") === "1";
 
   try {
-    const payload = await buildSignals({ topN, minTraders, hideResolved });
+    const payload = await buildSignals({
+      topN,
+      minTraders,
+      hideResolved,
+      sportsOnly,
+    });
     return NextResponse.json(payload, {
       headers: {
         "Cache-Control": "public, s-maxage=600, stale-while-revalidate=300",

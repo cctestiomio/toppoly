@@ -17,6 +17,7 @@ interface PageProps {
     min?: string;
     top?: string;
     resolved?: string;
+    sports?: string;
   };
 }
 
@@ -37,12 +38,14 @@ export default async function Page({ searchParams }: PageProps) {
   const topN = parsePositiveInt(searchParams?.top, 50, 10, 1000);
   // Default to hiding resolved markets; ?resolved=1 shows them.
   const hideResolved = searchParams?.resolved !== "1";
+  // Opt-in: ?sports=1 restricts to Polymarket-tagged sports + esports events.
+  const sportsOnly = searchParams?.sports === "1";
 
   let errorMessage: string | null = null;
   let payload: Awaited<ReturnType<typeof buildSignals>> | null = null;
 
   try {
-    payload = await buildSignals({ topN, minTraders, hideResolved });
+    payload = await buildSignals({ topN, minTraders, hideResolved, sportsOnly });
   } catch (err) {
     errorMessage =
       err instanceof Error
@@ -62,6 +65,7 @@ export default async function Page({ searchParams }: PageProps) {
         currentMin={minTraders}
         currentTop={topN}
         hideResolved={hideResolved}
+        sportsOnly={sportsOnly}
       />
 
       {errorMessage && (
@@ -107,10 +111,15 @@ export default async function Page({ searchParams }: PageProps) {
                 resolved
               </span>
             )}
+            {sportsOnly && (
+              <span className="text-neutral-500">
+                · sports &amp; esports only
+              </span>
+            )}
           </div>
 
           {payload.signals.length === 0 ? (
-            <EmptyState minTraders={minTraders} />
+            <EmptyState minTraders={minTraders} sportsOnly={sportsOnly} />
           ) : (
             <div className="mt-6 space-y-3">
               {payload.signals.map((signal, i) => (
@@ -181,10 +190,12 @@ function FilterBar({
   currentMin,
   currentTop,
   hideResolved,
+  sportsOnly,
 }: {
   currentMin: number;
   currentTop: number;
   hideResolved: boolean;
+  sportsOnly: boolean;
 }) {
   const minOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
   const topOptions = [50, 100, 250, 500];
@@ -193,6 +204,7 @@ function FilterBar({
     min?: number;
     top?: number;
     resolved?: "1" | undefined;
+    sports?: "1" | undefined;
   }): Record<string, string> => {
     const q: Record<string, string> = {
       min: String(overrides.min ?? currentMin),
@@ -205,6 +217,13 @@ function FilterBar({
         ? undefined
         : "1";
     if (resolvedFlag === "1") q.resolved = "1";
+    const sportsFlag =
+      "sports" in overrides
+        ? overrides.sports
+        : sportsOnly
+        ? "1"
+        : undefined;
+    if (sportsFlag === "1") q.sports = "1";
     return q;
   };
 
@@ -282,19 +301,53 @@ function FilterBar({
           {hideResolved ? "Hidden" : "Shown"}
         </Link>
       </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-neutral-500">Sports only:</span>
+        <Link
+          href={{ query: buildQuery({ sports: sportsOnly ? undefined : "1" }) }}
+          prefetch={false}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border font-medium transition-colors ${
+            sportsOnly
+              ? "border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800"
+              : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+          }`}
+          aria-pressed={sportsOnly}
+        >
+          <span
+            className={`h-4 w-7 rounded-full relative transition-colors ${
+              sportsOnly ? "bg-emerald-400" : "bg-neutral-300"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+                sportsOnly ? "left-3.5" : "left-0.5"
+              }`}
+            />
+          </span>
+          {sportsOnly ? "On" : "Off"}
+        </Link>
+      </div>
     </div>
   );
 }
 
-function EmptyState({ minTraders }: { minTraders: number }) {
+function EmptyState({
+  minTraders,
+  sportsOnly,
+}: {
+  minTraders: number;
+  sportsOnly: boolean;
+}) {
   return (
     <div className="mt-8 rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center">
       <h2 className="text-lg font-semibold text-neutral-900">
         No clusters yet
       </h2>
       <p className="mt-2 text-sm text-neutral-600 max-w-md mx-auto">
-        No markets currently have {minTraders} or more top-50 monthly traders on
-        the same side. Try lowering the minimum-trader threshold above.
+        {sportsOnly
+          ? `No sports or esports markets currently have ${minTraders} or more top-ranked monthly traders on the same side. Try lowering the minimum or turning off the sports filter.`
+          : `No markets currently have ${minTraders} or more top-50 monthly traders on the same side. Try lowering the minimum-trader threshold above.`}
       </p>
     </div>
   );
