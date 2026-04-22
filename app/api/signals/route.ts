@@ -18,7 +18,7 @@ function parsePositiveInt(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const minTraders = parsePositiveInt(searchParams.get("min"), 3, 2, 10);
-  const topN = parsePositiveInt(searchParams.get("top"), 50, 10, 50);
+  const topN = parsePositiveInt(searchParams.get("top"), 50, 10, 1000);
 
   try {
     const payload = await buildSignals({ topN, minTraders });
