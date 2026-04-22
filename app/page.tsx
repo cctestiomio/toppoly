@@ -181,8 +181,8 @@ function FilterBar({
   currentTop: number;
   hideResolved: boolean;
 }) {
-  const minOptions = [2, 3, 4, 5];
-  const topOptions = [25, 50];
+  const minOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const topOptions = [25, 50, 100, 200];
 
   const buildQuery = (overrides: {
     min?: number;
