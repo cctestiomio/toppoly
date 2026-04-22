@@ -43,7 +43,7 @@ export interface SignalsPayload {
 export async function buildSignals(
   options: BuildSignalsOptions = {}
 ): Promise<SignalsPayload> {
-  const topN = Math.min(Math.max(options.topN ?? 50, 1), 50);
+  const topN = Math.min(Math.max(options.topN ?? 50, 1), 1000);
   const minTraders = Math.max(options.minTraders ?? 3, 2);
   const minPositionValue = options.minPositionValue ?? 50; // ignore <$50 dust
   const concurrency = Math.min(Math.max(options.concurrency ?? 6, 1), 10);
