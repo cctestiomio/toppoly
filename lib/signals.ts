@@ -19,6 +19,8 @@ export interface BuildSignalsOptions {
   minPositionValue?: number;
   /** Concurrency for per-trader position fetches. */
   concurrency?: number;
+  /** Hide markets where the outcome price is >= 0.99 (effectively already resolved). */
+  hideResolved?: boolean;
 }
 
 export interface SignalsPayload {
@@ -28,6 +30,8 @@ export interface SignalsPayload {
     minTraders: number;
     tradersAnalyzed: number;
     totalPositions: number;
+    hideResolved: boolean;
+    resolvedHidden: number;
     generatedAt: string;
   };
 }
@@ -38,15 +42,19 @@ export interface SignalsPayload {
  *   2. Fetch each trader's current positions.
  *   3. Group by (conditionId, outcomeIndex) — same market, same side.
  *   4. Keep groups with >= minTraders unique traders.
- *   5. Sort by average position value (USD) descending.
+ *   5. Drop markets already resolved (price >= 99¢) unless hideResolved=false.
+ *   6. Sort by average position value (USD) descending.
  */
 export async function buildSignals(
   options: BuildSignalsOptions = {}
 ): Promise<SignalsPayload> {
-  const topN = Math.min(Math.max(options.topN ?? 50, 1), 1000);
+  const topN = Math.min(Math.max(options.topN ?? 50, 1), 50);
   const minTraders = Math.max(options.minTraders ?? 3, 2);
   const minPositionValue = options.minPositionValue ?? 50; // ignore <$50 dust
   const concurrency = Math.min(Math.max(options.concurrency ?? 6, 1), 10);
+  const hideResolved = options.hideResolved ?? true;
+  // Markets trading at >= 99¢ are effectively resolved — nothing to follow.
+  const RESOLVED_PRICE_THRESHOLD = 0.99;
 
   const leaderboard = await fetchLeaderboard({
     timePeriod: "MONTH",
@@ -112,10 +120,15 @@ export async function buildSignals(
     }
   }
 
-  // Finalize: compute aggregates, filter by minTraders, sort.
+  // Finalize: compute aggregates, filter by minTraders + resolved, sort.
   const signals: SignalGroup[] = [];
+  let resolvedHidden = 0;
   for (const group of groups.values()) {
     if (group.traders.length < minTraders) continue;
+    if (group.currentPrice >= RESOLVED_PRICE_THRESHOLD) {
+      resolvedHidden++;
+      if (hideResolved) continue;
+    }
 
     const total = group.traders.reduce((s, t) => s + t.positionValue, 0);
     group.totalPositionValue = total;
@@ -136,6 +149,8 @@ export async function buildSignals(
       minTraders,
       tradersAnalyzed: leaderboard.length,
       totalPositions,
+      hideResolved,
+      resolvedHidden,
       generatedAt: new Date().toISOString(),
     },
   };
