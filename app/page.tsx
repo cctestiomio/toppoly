@@ -7,6 +7,11 @@ import { SignalCard } from "@/components/SignalCard";
 // calls are cached server-side for 10 minutes regardless of the page-level dynamic
 // rendering needed for searchParams-based filters.
 
+// Top-N >= 100 can take a while on cold cache — make sure Vercel doesn't
+// time out on the serverless function. 60s is the Pro-plan max; on Hobby
+// this is silently clamped to 10s so stick to top=50 if you're on Hobby.
+export const maxDuration = 60;
+
 interface PageProps {
   searchParams?: {
     min?: string;
@@ -29,7 +34,7 @@ function parsePositiveInt(
 
 export default async function Page({ searchParams }: PageProps) {
   const minTraders = parsePositiveInt(searchParams?.min, 3, 2, 10);
-  const topN = parsePositiveInt(searchParams?.top, 50, 10, 50);
+  const topN = parsePositiveInt(searchParams?.top, 50, 10, 1000);
   // Default to hiding resolved markets; ?resolved=1 shows them.
   const hideResolved = searchParams?.resolved !== "1";
 
@@ -152,7 +157,7 @@ function Header({
         <strong className="text-neutral-900">{minTraders}+</strong> of the top{" "}
         <strong className="text-neutral-900">{topN}</strong> monthly-profit
         traders on{" "}
-        <a
+        
           href="https://polymarket.com/leaderboard/overall/monthly/profit"
           target="_blank"
           rel="noreferrer noopener"
@@ -182,7 +187,7 @@ function FilterBar({
   hideResolved: boolean;
 }) {
   const minOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const topOptions = [25, 50];
+  const topOptions = [50, 100, 250, 500];
 
   const buildQuery = (overrides: {
     min?: number;
