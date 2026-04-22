@@ -157,7 +157,7 @@ function Header({
         <strong className="text-neutral-900">{minTraders}+</strong> of the top{" "}
         <strong className="text-neutral-900">{topN}</strong> monthly-profit
         traders on{" "}
-        
+        <a
           href="https://polymarket.com/leaderboard/overall/monthly/profit"
           target="_blank"
           rel="noreferrer noopener"
