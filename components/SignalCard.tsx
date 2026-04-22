@@ -40,7 +40,6 @@ export function SignalCard({ signal, index }: SignalCardProps) {
         aria-expanded={expanded}
       >
         {signal.icon ? (
-          // Using a plain <img> to avoid next/image config per-domain churn — these are external market icons.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={signal.icon}
@@ -53,7 +52,7 @@ export function SignalCard({ signal, index }: SignalCardProps) {
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-mono tabular-nums text-neutral-400">
               #{index + 1}
             </span>
@@ -72,7 +71,15 @@ export function SignalCard({ signal, index }: SignalCardProps) {
             )}
           </div>
           <h3 className="text-base font-semibold text-neutral-900 leading-snug">
-            {signal.marketTitle}
+            
+              href={polymarketUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="hover:underline decoration-neutral-400 underline-offset-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {signal.marketTitle}
+            </a>
           </h3>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm">
             <Stat
@@ -88,32 +95,61 @@ export function SignalCard({ signal, index }: SignalCardProps) {
           </div>
         </div>
 
-        <button
-          type="button"
-          aria-label={expanded ? "Collapse traders" : "Expand traders"}
-          className="flex-shrink-0 h-8 w-8 grid place-items-center rounded-md text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((v) => !v);
-          }}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            className={`transition-transform ${expanded ? "rotate-180" : ""}`}
-            aria-hidden="true"
+        {/* Action buttons: Open market + Expand */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          
+            href={polymarketUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            onClick={(e) => e.stopPropagation()}
+            title="Open on Polymarket"
+            aria-label="Open on Polymarket"
+            className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md bg-neutral-900 text-white text-xs font-medium hover:bg-neutral-800 transition"
           >
-            <path
-              d="M4 6l4 4 4-4"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            Trade
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M4.5 2h5.5v5.5M10 2L3 9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </a>
+          <button
+            type="button"
+            aria-label={expanded ? "Collapse traders" : "Expand traders"}
+            className="h-8 w-8 grid place-items-center rounded-md text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            >
+              <path
+                d="M4 6l4 4 4-4"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* Expanded trader list */}
@@ -131,7 +167,7 @@ export function SignalCard({ signal, index }: SignalCardProps) {
                 key={t.proxyWallet}
                 className="px-5 py-3 grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center"
               >
-                <a
+                
                   href={`https://polymarket.com/profile/${t.proxyWallet}`}
                   target="_blank"
                   rel="noreferrer noopener"
@@ -183,32 +219,6 @@ export function SignalCard({ signal, index }: SignalCardProps) {
               </li>
             ))}
           </ul>
-          <div className="px-5 py-3 border-t border-neutral-200 bg-white text-right">
-            <a
-              href={polymarketUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center gap-1 text-xs font-medium text-neutral-700 hover:text-neutral-900"
-              onClick={(e) => e.stopPropagation()}
-            >
-              View market on Polymarket
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M4.5 2h5.5v5.5M10 2L3 9"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </a>
-          </div>
         </div>
       )}
     </article>
