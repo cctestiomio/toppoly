@@ -11,6 +11,7 @@ interface PageProps {
   searchParams?: {
     min?: string;
     top?: string;
+    resolved?: string;
   };
 }
 
@@ -28,13 +29,15 @@ function parsePositiveInt(
 
 export default async function Page({ searchParams }: PageProps) {
   const minTraders = parsePositiveInt(searchParams?.min, 3, 2, 10);
-  const topN = parsePositiveInt(searchParams?.top, 50, 10, 1000);
+  const topN = parsePositiveInt(searchParams?.top, 50, 10, 50);
+  // Default to hiding resolved markets; ?resolved=1 shows them.
+  const hideResolved = searchParams?.resolved !== "1";
 
   let errorMessage: string | null = null;
   let payload: Awaited<ReturnType<typeof buildSignals>> | null = null;
 
   try {
-    payload = await buildSignals({ topN, minTraders });
+    payload = await buildSignals({ topN, minTraders, hideResolved });
   } catch (err) {
     errorMessage =
       err instanceof Error
@@ -50,7 +53,11 @@ export default async function Page({ searchParams }: PageProps) {
         generatedAt={payload?.meta.generatedAt}
       />
 
-      <FilterBar currentMin={minTraders} currentTop={topN} />
+      <FilterBar
+        currentMin={minTraders}
+        currentTop={topN}
+        hideResolved={hideResolved}
+      />
 
       {errorMessage && (
         <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
@@ -86,6 +93,15 @@ export default async function Page({ searchParams }: PageProps) {
               </strong>{" "}
               positions
             </span>
+            {hideResolved && payload.meta.resolvedHidden > 0 && (
+              <span className="text-neutral-500">
+                · hiding{" "}
+                <strong className="text-neutral-700">
+                  {payload.meta.resolvedHidden}
+                </strong>{" "}
+                resolved
+              </span>
+            )}
           </div>
 
           {payload.signals.length === 0 ? (
@@ -136,7 +152,7 @@ function Header({
         <strong className="text-neutral-900">{minTraders}+</strong> of the top{" "}
         <strong className="text-neutral-900">{topN}</strong> monthly-profit
         traders on{" "}
-        <a
+        
           href="https://polymarket.com/leaderboard/overall/monthly/profit"
           target="_blank"
           rel="noreferrer noopener"
@@ -159,12 +175,33 @@ function Header({
 function FilterBar({
   currentMin,
   currentTop,
+  hideResolved,
 }: {
   currentMin: number;
   currentTop: number;
+  hideResolved: boolean;
 }) {
   const minOptions = [2, 3, 4, 5];
-  const topOptions = [25, 50, 100, 200];
+  const topOptions = [25, 50];
+
+  const buildQuery = (overrides: {
+    min?: number;
+    top?: number;
+    resolved?: "1" | undefined;
+  }): Record<string, string> => {
+    const q: Record<string, string> = {
+      min: String(overrides.min ?? currentMin),
+      top: String(overrides.top ?? currentTop),
+    };
+    const resolvedFlag =
+      "resolved" in overrides
+        ? overrides.resolved
+        : hideResolved
+        ? undefined
+        : "1";
+    if (resolvedFlag === "1") q.resolved = "1";
+    return q;
+  };
 
   return (
     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm">
@@ -176,7 +213,7 @@ function FilterBar({
             return (
               <Link
                 key={n}
-                href={{ query: { min: n, top: currentTop } }}
+                href={{ query: buildQuery({ min: n }) }}
                 prefetch={false}
                 className={`px-3 py-1.5 tabular-nums font-medium transition-colors ${
                   active
@@ -199,7 +236,7 @@ function FilterBar({
             return (
               <Link
                 key={n}
-                href={{ query: { min: currentMin, top: n } }}
+                href={{ query: buildQuery({ top: n }) }}
                 prefetch={false}
                 className={`px-3 py-1.5 tabular-nums font-medium transition-colors ${
                   active
@@ -212,6 +249,33 @@ function FilterBar({
             );
           })}
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-neutral-500">Resolved:</span>
+        <Link
+          href={{ query: buildQuery({ resolved: hideResolved ? "1" : undefined }) }}
+          prefetch={false}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border font-medium transition-colors ${
+            hideResolved
+              ? "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
+              : "border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800"
+          }`}
+          aria-pressed={!hideResolved}
+        >
+          <span
+            className={`h-4 w-7 rounded-full relative transition-colors ${
+              hideResolved ? "bg-neutral-300" : "bg-emerald-400"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+                hideResolved ? "left-0.5" : "left-3.5"
+              }`}
+            />
+          </span>
+          {hideResolved ? "Hidden" : "Shown"}
+        </Link>
       </div>
     </div>
   );
