@@ -28,7 +28,7 @@ function parsePositiveInt(
 
 export default async function Page({ searchParams }: PageProps) {
   const minTraders = parsePositiveInt(searchParams?.min, 3, 2, 10);
-  const topN = parsePositiveInt(searchParams?.top, 50, 10, 50);
+  const topN = parsePositiveInt(searchParams?.top, 50, 10, 1000);
 
   let errorMessage: string | null = null;
   let payload: Awaited<ReturnType<typeof buildSignals>> | null = null;
@@ -164,7 +164,7 @@ function FilterBar({
   currentTop: number;
 }) {
   const minOptions = [2, 3, 4, 5];
-  const topOptions = [25, 50];
+  const topOptions = [25, 50, 100, 200];
 
   return (
     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm">
