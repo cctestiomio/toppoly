@@ -11,7 +11,7 @@ import {
 } from "./polymarket";
 
 export interface BuildSignalsOptions {
-  /** How many top leaderboard traders to pull. API cap is 50. */
+  /** How many top leaderboard traders to pull. */
   topN?: number;
   /** Minimum number of traders on the same market+outcome to qualify as a signal. */
   minTraders?: number;
@@ -48,10 +48,16 @@ export interface SignalsPayload {
 export async function buildSignals(
   options: BuildSignalsOptions = {}
 ): Promise<SignalsPayload> {
-  const topN = Math.min(Math.max(options.topN ?? 50, 1), 50);
+  const topN = Math.min(Math.max(options.topN ?? 50, 1), 1000);
   const minTraders = Math.max(options.minTraders ?? 3, 2);
   const minPositionValue = options.minPositionValue ?? 50; // ignore <$50 dust
-  const concurrency = Math.min(Math.max(options.concurrency ?? 6, 1), 10);
+  // Scale concurrency up with topN so 500-trader runs don't take forever,
+  // but stay bounded so we don't trip Polymarket's rate limits.
+  const defaultConcurrency = topN > 200 ? 10 : topN > 75 ? 8 : 6;
+  const concurrency = Math.min(
+    Math.max(options.concurrency ?? defaultConcurrency, 1),
+    12
+  );
   const hideResolved = options.hideResolved ?? true;
   // Markets trading at >= 99¢ are effectively resolved — nothing to follow.
   const RESOLVED_PRICE_THRESHOLD = 0.99;
