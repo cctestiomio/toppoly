@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bg: #fafafa;
+  --fg: #0b0b0f;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* Smooth scroll on anchor nav */
+html {
+  scroll-behavior: smooth;
+}
